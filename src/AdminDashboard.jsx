@@ -11,6 +11,8 @@ import QRCode from 'qrcode';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
@@ -72,7 +74,7 @@ const AdminDashboard = ({ currentUser }) => {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/customers');
+      const res = await fetch(`${API_URL}/api/customers`);
       if (res.ok) {
         const data = await res.json();
         setCustomers(data.map(c => ({
@@ -92,7 +94,7 @@ const AdminDashboard = ({ currentUser }) => {
 
   const fetchAgents = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/agents');
+      const res = await fetch(`${API_URL}/api/agents`);
       if (res.ok) {
         const data = await res.json();
         setAgentsList(data);
@@ -140,7 +142,7 @@ const AdminDashboard = ({ currentUser }) => {
     }
 
     try {
-      const res = await fetch('http://localhost:5000/api/agents', {
+      const res = await fetch(`${API_URL}/api/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: agentName }),
@@ -166,7 +168,7 @@ const AdminDashboard = ({ currentUser }) => {
     if (!window.confirm(`Are you sure you want to delete agent "${name}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/agents/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/agents/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchAgents();
         fetchCustomers();
@@ -184,7 +186,7 @@ const AdminDashboard = ({ currentUser }) => {
     setAssignedStoreIds([]);
 
     try {
-      const res = await fetch(`http://localhost:5000/api/agents/${agent.id}/stores`);
+      const res = await fetch(`${API_URL}/api/agents/${agent.id}/stores`);
       if (res.ok) {
         const data = await res.json();
         setAssignedStoreIds(data);
@@ -231,7 +233,7 @@ const AdminDashboard = ({ currentUser }) => {
     setIsSavingAssignments(true);
 
     try {
-      const res = await fetch(`http://localhost:5000/api/agents/${selectedAgent.id}/stores`, {
+      const res = await fetch(`${API_URL}/api/agents/${selectedAgent.id}/stores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storeIds: assignedStoreIds })
@@ -261,7 +263,7 @@ const AdminDashboard = ({ currentUser }) => {
     }
 
     try {
-      const res = await fetch('http://localhost:5000/api/customers', {
+      const res = await fetch(`${API_URL}/api/customers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCustomer),
@@ -285,7 +287,7 @@ const AdminDashboard = ({ currentUser }) => {
     if (!window.confirm(`Are you sure you want to delete store "${name}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/customers/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/customers/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchCustomers();
       } else {
@@ -355,7 +357,7 @@ const AdminDashboard = ({ currentUser }) => {
     const adminId = currentUser ? currentUser.id : 1;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/agents/${adminId}/change-password`, {
+      const response = await fetch(`${API_URL}/api/agents/${adminId}/change-password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword })

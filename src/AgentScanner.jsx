@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { Camera, MapPin, CheckCircle2, XCircle, RefreshCw, Bell, WifiOff, Wifi, Home, User, Settings as SettingsIcon, ShieldCheck, Lock, LogOut } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const AgentScanner = ({ loggedUser }) => {
   const [activeTab, setActiveTab] = useState('home');
 
@@ -96,7 +98,7 @@ const AgentScanner = ({ loggedUser }) => {
     try {
       const remainingVisits = [];
       for (const visit of pendingVisits) {
-        const response = await fetch('http://localhost:5000/api/visits', {
+        const response = await fetch(`${API_URL}/api/visits`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(visit)
@@ -113,7 +115,7 @@ const AgentScanner = ({ loggedUser }) => {
 
   const fetchAssignedStoresOnline = async (agentId) => {
     try {
-      const storesRes = await fetch(`http://localhost:5000/api/agents/${agentId}/assigned-stores`);
+      const storesRes = await fetch(`${API_URL}/api/agents/${agentId}/assigned-stores`);
       if (storesRes.ok) {
         const storesData = await storesRes.json();
         if (Array.isArray(storesData)) {
@@ -318,7 +320,7 @@ const AgentScanner = ({ loggedUser }) => {
 
     if (navigator.onLine) {
       try {
-        const response = await fetch('http://localhost:5000/api/visits', {
+        const response = await fetch(`${API_URL}/api/visits`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(visitPayload)
@@ -370,7 +372,7 @@ const AgentScanner = ({ loggedUser }) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/agents/${currentAgentId || 2}/change-password`, {
+      const response = await fetch(`${API_URL}/api/agents/${currentAgentId || 2}/change-password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword })

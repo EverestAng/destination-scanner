@@ -3,6 +3,9 @@ import AdminDashboard from './AdminDashboard';
 import AgentScanner from './AgentScanner';
 import { Lock, User, ShieldCheck } from 'lucide-react';
 
+// Dynamic API URL para sa Vercel (Render backend) at Localhost development
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [email, setEmail] = useState('');
@@ -13,7 +16,7 @@ function App() {
   // Fetch agents list from PostgreSQL via Express API
   const fetchAgents = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/agents');
+      const res = await fetch(`${API_URL}/api/agents`);
       const data = await res.json();
       setAgents(data);
     } catch (err) {
@@ -33,7 +36,7 @@ function App() {
     setLoginError('');
 
     try {
-      const res = await fetch('http://localhost:5000/api/login', {
+      const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -54,7 +57,7 @@ function App() {
   // Add Agent Handler (Inserts to Database)
   const handleAddAgent = async (newAgentData) => {
     try {
-      const res = await fetch('http://localhost:5000/api/agents', {
+      const res = await fetch(`${API_URL}/api/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAgentData),
