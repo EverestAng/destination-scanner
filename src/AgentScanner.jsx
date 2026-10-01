@@ -145,21 +145,35 @@ const AgentScanner = ({ loggedUser }) => {
       setHasUnread(savedUnread === 'true');
     }
 
-    const cacheKey = `last_known_stores_count_${agentId}`;
-    const savedCount = localStorage.getItem(cacheKey);
-    
-    if (savedCount === null) {
-      localStorage.setItem(cacheKey, newStores.length.toString());
+    const cacheKey = `cached_assigned_stores_ids_${agentId}`;
+    const savedIdsStr = localStorage.getItem(cacheKey);
+
+    // Kunin ang mga IDs ng stores para mas madaling ma-detect kung alin ang bagong dagdag
+    const currentStoreIds = newStores.map(s => s.id);
+
+    if (savedIdsStr === null) {
+      // Unang load pa lang, i-save ang kasalukuyang IDs nang walang notification para hindi mag-spam
+      localStorage.setItem(cacheKey, JSON.stringify(currentStoreIds));
       return;
     }
 
-    const prevCount = parseInt(savedCount, 10);
+    let savedIds = [];
+    try {
+      savedIds = JSON.parse(savedIdsStr);
+    } catch (e) {}
 
-    if (newStores.length > prevCount) {
-      const addedCount = newStores.length - prevCount;
+    // Hanapin ang mga store IDs na bago (wala pa roon sa dating nakasave)
+    const newlyAddedStores = newStores.filter(store => !savedIds.includes(store.id));
+
+    if (newlyAddedStores.length > 0) {
+      // Buuin ang mensahe na naglalaman ng mga pangalan ng bagong store
+      const storeNames = newlyAddedStores.map(s => `${s.name}${s.address ? ` (${s.address})` : ''}`).join(', ');
+      
       const newNotif = {
         title: "New Store Assigned",
-        message: `Admin added ${addedCount} new store(s) to your assigned list.`,
+        message: newlyAddedStores.length === 1 
+          ? `Admin assigned a new store to you: ${storeNames}.`
+          : `Admin assigned ${newlyAddedStores.length} new stores to you: ${storeNames}.`,
         created_at: "Just now"
       };
 
@@ -171,7 +185,8 @@ const AgentScanner = ({ loggedUser }) => {
       localStorage.setItem(unreadStateKey, 'true');
     }
 
-    localStorage.setItem(cacheKey, newStores.length.toString());
+    // I-update ang cached IDs sa pinakabago
+    localStorage.setItem(cacheKey, JSON.stringify(currentStoreIds));
   };
 
   useEffect(() => {
