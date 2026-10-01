@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, MapPin, CheckCircle, 
-  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings
+  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -54,10 +54,11 @@ const AdminDashboard = ({ currentUser }) => {
   const [isSavingAssignments, setIsSavingAssignments] = useState(false);
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
 
-  // Store & Map State
+  // Store, Map & Visits State
   const [mapCenter] = useState([7.0736, 125.6110]);
   const [selectedPin, setSelectedPin] = useState([7.0736, 125.6110]);
   const [customers, setCustomers] = useState([]);
+  const [visitsList, setVisitsList] = useState([]);
   const [newCustomer, setNewCustomer] = useState({ 
     name: '', 
     address: '', 
@@ -104,9 +105,22 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
+  const fetchVisits = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/visits`);
+      if (res.ok) {
+        const data = await res.json();
+        setVisitsList(data);
+      }
+    } catch (err) {
+      console.error('Fetch visits error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
     fetchAgents();
+    fetchVisits();
   }, []);
 
   const handleMapClick = (lat, lng) => {
@@ -290,6 +304,7 @@ const AdminDashboard = ({ currentUser }) => {
       const res = await fetch(`${API_URL}/api/customers/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchCustomers();
+        fetchVisits();
       } else {
         alert('Failed to delete store location.');
       }
@@ -446,7 +461,55 @@ const AdminDashboard = ({ currentUser }) => {
               </div>
               <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-indigo-500">
                 <p className="text-xs text-slate-500 font-semibold uppercase">Verified Visits</p>
-                <p className="text-3xl font-extrabold mt-2">34</p>
+                <p className="text-3xl font-extrabold mt-2">{visitsList.length}</p>
+              </div>
+            </div>
+
+            {/* Recent Visit Logs Table */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-indigo-600" /> Recent Visit Logs
+              </h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-semibold bg-slate-50">
+                      <th className="p-3">Store Name</th>
+                      <th className="p-3">Field Agent</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Distance</th>
+                      <th className="p-3">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {visitsList.length > 0 ? (
+                      visitsList.map((visit) => (
+                        <tr key={visit.id} className="hover:bg-slate-50/80 transition">
+                          <td className="p-3 font-bold text-slate-800">{visit.store_name || 'Unknown Store'}</td>
+                          <td className="p-3 text-slate-600 font-medium">{visit.agent_name || 'Unknown Agent'}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
+                              visit.status === 'verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                            }`}>
+                              {visit.status}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-slate-500">
+                            {Math.round(visit.distance_meters) === 1 ? '1 meter' : `${Math.round(visit.distance_meters)} meters`}
+                          </td>
+                          <td className="p-3 text-slate-400">{new Date(visit.timestamp).toLocaleString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="text-center text-slate-400 py-6">
+                          No visit logs recorded yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

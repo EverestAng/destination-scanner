@@ -131,7 +131,7 @@ app.delete('/api/agents/:id', async (req, res) => {
   }
 });
 
-// --- UPDATED: Universal Change Password Route (Para sa Admin at Agents) ---
+// --- UNIVERSAL CHANGE PASSWORD ROUTE (Para sa Admin at Agents) ---
 app.put('/api/agents/:id/change-password', async (req, res) => {
   const { id } = req.params;
   const { currentPassword, newPassword } = req.body;
@@ -141,7 +141,6 @@ app.put('/api/agents/:id/change-password', async (req, res) => {
   }
 
   try {
-    // 1. Hanapin ang user (kahit admin o agent) base sa ID
     const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
 
     if (userResult.rows.length === 0) {
@@ -150,7 +149,6 @@ app.put('/api/agents/:id/change-password', async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // 2. Suriin kung tama ang current password (support sa bcrypt at plain text fallback)
     let isMatch = false;
     if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
       isMatch = await bcrypt.compare(currentPassword, user.password);
@@ -162,11 +160,9 @@ app.put('/api/agents/:id/change-password', async (req, res) => {
       return res.status(400).json({ error: 'Incorrect current password.' });
     }
 
-    // 3. I-hash ang bagong password bago i-save
     const saltRounds = 10;
     const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // 4. I-update ang password sa database
     await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, id]);
 
     res.json({ message: 'Password successfully updated!' });
@@ -176,9 +172,8 @@ app.put('/api/agents/:id/change-password', async (req, res) => {
   }
 });
 
-// --- AGENT STORE ASSIGNMENTS ROUTES (1 Store = 1 Agent) ---
+// --- AGENT STORE ASSIGNMENTS ROUTES ---
 
-// Get store IDs assigned to a specific agent
 app.get('/api/agents/:id/stores', async (req, res) => {
   const { id } = req.params;
   try {
@@ -192,7 +187,6 @@ app.get('/api/agents/:id/stores', async (req, res) => {
   }
 });
 
-// Update store assignments for an agent
 app.post('/api/agents/:id/stores', async (req, res) => {
   const { id } = req.params;
   const { storeIds } = req.body;
@@ -201,10 +195,8 @@ app.post('/api/agents/:id/stores', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    // 1. I-clear muna ang mga dating hawak na stores nitong agent na ito (ibalik sa NULL)
     await client.query('UPDATE customers SET agent_id = NULL WHERE agent_id = $1', [id]);
 
-    // 2. I-assign ang mga bagong pili sa agent na ito
     if (storeIds && storeIds.length > 0) {
       const parsedStoreIds = storeIds.map(sId => parseInt(sId, 10));
       const updateQuery = 'UPDATE customers SET agent_id = $1 WHERE id = ANY($2::int[])';
@@ -222,7 +214,6 @@ app.post('/api/agents/:id/stores', async (req, res) => {
   }
 });
 
-// Get store objects assigned to a specific agent (For Agent Mobile Scanner dropdown)
 app.get('/api/agents/:id/assigned-stores', async (req, res) => {
   const { id } = req.params;
   try {
@@ -313,7 +304,25 @@ app.delete('/api/customers/:id', async (req, res) => {
   }
 });
 
-// 7. Record Visit Log
+// 7. Get All Visits Logs (Para sa Admin Overview Table at Dynamic Count)
+app.get('/api/visits', async (req, res) => {
+  try {
+    const query = `
+      SELECT v.*, c.name AS store_name, u.name AS agent_name 
+      FROM visits v
+      LEFT JOIN customers c ON v.customer_id = c.id
+      LEFT JOIN users u ON v.agent_id = u.id
+      ORDER BY v.timestamp DESC
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('FETCH VISITS ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8. Record Visit Log
 app.post('/api/visits', async (req, res) => {
   const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
   
