@@ -17,7 +17,6 @@ const AgentScanner = ({ loggedUser }) => {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   
-  // Unahing gamitin ang loggedUser prop, i-fallback sa localStorage, at i-save agad para laging updated
   const getInitialAgent = () => {
     if (loggedUser && loggedUser.id) {
       localStorage.setItem('current_agent', JSON.stringify(loggedUser));
@@ -61,7 +60,6 @@ const AgentScanner = ({ loggedUser }) => {
     currentAgentIdRef.current = currentAgentId;
   }, [currentAgentId]);
 
-  // Sinisigurong nag-a-update ang state at localStorage kapag nagpalit o pumasok ang loggedUser prop
   useEffect(() => {
     if (loggedUser && loggedUser.id) {
       setCurrentAgentId(loggedUser.id);
@@ -414,15 +412,6 @@ const AgentScanner = ({ loggedUser }) => {
             {isOnline ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
             {isOnline ? 'Online' : 'Offline'}
           </div>
-          <button
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-            className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
-          >
-            <LogOut className="w-3 h-3" /> Logout
-          </button>
         </div>
       </header>
 
@@ -644,9 +633,9 @@ const AgentScanner = ({ loggedUser }) => {
                 localStorage.clear();
                 window.location.reload();
               }}
-              className="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-800 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+              className="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-800 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
             >
-              Clear Cache & Logout
+              <LogOut className="w-4 h-4" /> Clear Cache & Logout
             </button>
           </div>
         )}
