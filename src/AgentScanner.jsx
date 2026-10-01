@@ -303,7 +303,7 @@ const AgentScanner = ({ loggedUser }) => {
       return;
     }
 
-    if (dist > 3) {
+    if (dist > 10) {
       setVerificationStatus('failed');
       setErrorMessage(`Too far from ${currentCustomer.name} (${dist}m away). Max is 3m.`);
       return;
