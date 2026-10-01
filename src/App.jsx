@@ -3,17 +3,23 @@ import AdminDashboard from './AdminDashboard';
 import AgentScanner from './AgentScanner';
 import { Lock, User, ShieldCheck } from 'lucide-react';
 
-// Dynamic API URL para sa Vercel (Render backend) at Localhost development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('geo_current_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [agents, setAgents] = useState([]);
 
-  // Fetch agents list from PostgreSQL via Express API
   const fetchAgents = async () => {
     try {
       const res = await fetch(`${API_URL}/api/agents`);
@@ -30,7 +36,6 @@ function App() {
     }
   }, [currentUser]);
 
-  // Login Handler for Staff / Admins / Agents
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -46,6 +51,7 @@ function App() {
 
       if (res.ok) {
         setCurrentUser(data);
+        localStorage.setItem('geo_current_user', JSON.stringify(data));
       } else {
         setLoginError(data.message || 'Invalid email or password!');
       }
@@ -54,7 +60,6 @@ function App() {
     }
   };
 
-  // Add Agent Handler (Inserts to Database)
   const handleAddAgent = async (newAgentData) => {
     try {
       const res = await fetch(`${API_URL}/api/agents`, {
@@ -64,7 +69,7 @@ function App() {
       });
 
       if (res.ok) {
-        fetchAgents(); // Refresh list from DB
+        fetchAgents();
       }
     } catch (err) {
       console.error('Failed to add agent:', err);
@@ -75,9 +80,9 @@ function App() {
     setCurrentUser(null);
     setEmail('');
     setPassword('');
+    localStorage.removeItem('geo_current_user');
   };
 
-  // Kapag Naka-login na ang Employee (Admin or Agent)
   if (currentUser) {
     return (
       <div>
@@ -100,7 +105,6 @@ function App() {
     );
   }
 
-  // Employee Direct Login Portal (Admin & Field Agents Only)
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-sans relative">
       <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
