@@ -438,7 +438,22 @@ const AdminDashboard = ({ currentUser }) => {
     c.qr.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase())
   );
 
-  const previewFirstName = agentName.trim() ? agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') : 'firstname';
+  // Dynamic Email Preview Generation (Para tugma sa backend logic)
+  let previewFirstName = 'firstname';
+  if (agentName.trim()) {
+    const firstName = agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (firstName) {
+      const existingEmails = agentsList.map(a => a.email);
+      let generatedEmail = `${firstName}@agent.com`;
+      let counter = 1;
+
+      while (existingEmails.includes(generatedEmail)) {
+        generatedEmail = `${firstName}${counter}@agent.com`;
+        counter++;
+      }
+      previewFirstName = generatedEmail.replace('@agent.com', '');
+    }
+  }
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800">
