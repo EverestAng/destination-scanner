@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminDashboard from './AdminDashboard';
 import AgentScanner from './AgentScanner';
-import { Lock, User, ShieldCheck } from 'lucide-react';
+import { Lock, User, ShieldCheck, Shield, Smartphone } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -15,7 +15,10 @@ function App() {
     }
   });
 
-  const [email, setEmail] = useState('');
+  // State para sa active tab ('admin' o 'agent')
+  const [activeTab, setActiveTab] = useState('admin');
+
+  const [email, setEmail] = useState('admin@geoverify.com');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [agents, setAgents] = useState([]);
@@ -36,6 +39,19 @@ function App() {
     }
   }, [currentUser]);
 
+  // Kapag nagpalit ng tab, i-adjust natin ang default values para madali sa kanila
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setLoginError('');
+    if (tab === 'admin') {
+      setEmail('admin@geoverify.com');
+      setPassword('');
+    } else {
+      setEmail('');
+      setPassword('');
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -50,6 +66,16 @@ function App() {
       const data = await res.json();
 
       if (res.ok) {
+        // Optional validation para sigurohang tugma ang role
+        if (activeTab === 'admin' && data.role !== 'admin') {
+          setLoginError('This account is not authorized as an Administrator.');
+          return;
+        }
+        if (activeTab === 'agent' && data.role !== 'agent') {
+          setLoginError('This account is not authorized as a Field Agent.');
+          return;
+        }
+
         setCurrentUser(data);
         localStorage.setItem('geo_current_user', JSON.stringify(data));
       } else {
@@ -78,8 +104,9 @@ function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setEmail('');
+    setEmail('admin@geoverify.com');
     setPassword('');
+    setActiveTab('admin');
     localStorage.removeItem('geo_current_user');
   };
 
@@ -108,12 +135,41 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-sans relative">
       <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
+        
+        {/* HEADER & LOGO */}
         <div className="text-center mb-6">
           <div className="inline-flex p-3 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 mb-2">
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold text-white">GeoVerify Portal</h1>
-          <p className="text-xs text-slate-400 mt-1">Employee Login (Admin & Field Agents)</p>
+          <p className="text-xs text-slate-400 mt-1">Employee Login System</p>
+        </div>
+
+        {/* TAB SWITCHER */}
+        <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 mb-6">
+          <button
+            type="button"
+            onClick={() => handleTabChange('admin')}
+            className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === 'admin' 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" /> Admin Portal
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('agent')}
+            className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === 'agent' 
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" /> Agent Portal
+          </button>
         </div>
 
         {loginError && (
@@ -122,6 +178,7 @@ function App() {
           </div>
         )}
 
+        {/* LOGIN FORM */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="text-xs font-semibold text-slate-300">Email Address</label>
@@ -131,7 +188,7 @@ function App() {
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@geoverify.com" 
+                placeholder={activeTab === 'admin' ? 'admin@geoverify.com' : 'juan@agent.com'} 
                 className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
                 required
               />
@@ -155,9 +212,11 @@ function App() {
 
           <button 
             type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-lg text-sm transition shadow-lg shadow-blue-600/20 cursor-pointer"
+            className={`w-full font-bold py-2.5 rounded-lg text-sm transition shadow-lg cursor-pointer text-white ${
+              activeTab === 'admin' ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+            }`}
           >
-            Sign In
+            Sign In to {activeTab === 'admin' ? 'Admin' : 'Agent'} Portal
           </button>
         </form>
 
