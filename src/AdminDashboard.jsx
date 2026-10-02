@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, MapPin, CheckCircle, 
-  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock
+  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock, RefreshCw
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -65,6 +65,11 @@ const AdminDashboard = ({ currentUser }) => {
     lat: '7.0736', 
     lng: '125.6110'
   });
+
+  // Visit Logs Filtering State
+  const [visitSearchQuery, setVisitSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Admin Password Settings State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -396,6 +401,26 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
+  // Filter logic for Visit Logs
+  const filteredVisits = visitsList.filter((visit) => {
+    const matchesSearch = 
+      (visit.agent_name && visit.agent_name.toLowerCase().includes(visitSearchQuery.toLowerCase())) ||
+      (visit.store_name && visit.store_name.toLowerCase().includes(visitSearchQuery.toLowerCase()));
+
+    let matchesDate = true;
+    if (visit.timestamp) {
+      const visitDateOnly = visit.timestamp.split('T')[0]; // YYYY-MM-DD
+      if (startDate && visitDateOnly < startDate) {
+        matchesDate = false;
+      }
+      if (endDate && visitDateOnly > endDate) {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
+  });
+
   const previewFirstName = agentName.trim() ? agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') : 'firstname';
 
   return (
@@ -465,11 +490,57 @@ const AdminDashboard = ({ currentUser }) => {
               </div>
             </div>
 
-            {/* Recent Visit Logs Table */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-indigo-600" /> Recent Visit Logs
-              </h3>
+            {/* Recent Visit Logs Table & Filters */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-indigo-600" /> Recent Visit Logs
+                </h3>
+
+                {/* Filtering controls */}
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-56">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input 
+                      type="text"
+                      value={visitSearchQuery}
+                      onChange={(e) => setVisitSearchQuery(e.target.value)}
+                      placeholder="Search agent or store..."
+                      className="w-full pl-9 pr-3 py-1.5 border rounded-lg text-xs focus:outline-blue-500 bg-slate-50"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-slate-400 font-medium">From:</span>
+                    <input 
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="p-1.5 border rounded-lg text-xs bg-slate-50 focus:outline-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-slate-400 font-medium">To:</span>
+                    <input 
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="p-1.5 border rounded-lg text-xs bg-slate-50 focus:outline-blue-500"
+                    />
+                  </div>
+
+                  {(visitSearchQuery || startDate || endDate) && (
+                    <button 
+                      onClick={() => { setVisitSearchQuery(''); setStartDate(''); setEndDate(''); }}
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                      title="Reset Filters"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Reset
+                    </button>
+                  )}
+                </div>
+              </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -483,8 +554,8 @@ const AdminDashboard = ({ currentUser }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {visitsList.length > 0 ? (
-                      visitsList.map((visit) => (
+                    {filteredVisits.length > 0 ? (
+                      filteredVisits.map((visit) => (
                         <tr key={visit.id} className="hover:bg-slate-50/80 transition">
                           <td className="p-3 font-bold text-slate-800">{visit.store_name || 'Unknown Store'}</td>
                           <td className="p-3 text-slate-600 font-medium">{visit.agent_name || 'Unknown Agent'}</td>
@@ -503,8 +574,8 @@ const AdminDashboard = ({ currentUser }) => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="text-center text-slate-400 py-6">
-                          No visit logs recorded yet.
+                        <td colSpan="5" className="text-center text-slate-400 py-8">
+                          No matching visit logs found.
                         </td>
                       </tr>
                     )}
