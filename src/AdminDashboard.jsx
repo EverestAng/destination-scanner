@@ -46,7 +46,7 @@ const AdminDashboard = ({ currentUser }) => {
   const [agentName, setAgentName] = useState('');
   const [agentsList, setAgentsList] = useState([]);
   const [agentSuccessMsg, setAgentSuccessMsg] = useState('');
-  const [agentSearchQuery, setAgentSearchQuery] = useState(''); // New State for Agent Search
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
 
   // Agent Store Assignment Modal State
   const [selectedAgent, setSelectedAgent] = useState(null);
@@ -66,6 +66,9 @@ const AdminDashboard = ({ currentUser }) => {
     lat: '7.0736', 
     lng: '125.6110'
   });
+
+  // Store Locations Tab Search State (New)
+  const [registeredStoreSearchQuery, setRegisteredStoreSearchQuery] = useState('');
 
   // Visit Logs Filtering State
   const [visitSearchQuery, setVisitSearchQuery] = useState('');
@@ -232,13 +235,13 @@ const AdminDashboard = ({ currentUser }) => {
     !store.agent_id || store.agent_id === selectedAgent?.id
   );
 
-  const filteredStores = storesForThisAgent.filter(store => 
+  const filteredModalStores = storesForThisAgent.filter(store => 
     store.name.toLowerCase().includes(storeSearchQuery.toLowerCase()) ||
     store.address.toLowerCase().includes(storeSearchQuery.toLowerCase())
   );
 
   const handleSelectAllFiltered = () => {
-    const filteredIds = filteredStores.map(s => s.id);
+    const filteredIds = filteredModalStores.map(s => s.id);
     const allSelected = filteredIds.every(id => assignedStoreIds.includes(id));
 
     if (allSelected) {
@@ -410,7 +413,7 @@ const AdminDashboard = ({ currentUser }) => {
 
     let matchesDate = true;
     if (visit.timestamp) {
-      const visitDateOnly = visit.timestamp.split('T')[0]; // YYYY-MM-DD
+      const visitDateOnly = visit.timestamp.split('T')[0];
       if (startDate && visitDateOnly < startDate) {
         matchesDate = false;
       }
@@ -426,6 +429,13 @@ const AdminDashboard = ({ currentUser }) => {
   const filteredAgentsList = agentsList.filter((agent) => 
     agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase()) ||
     agent.email.toLowerCase().includes(agentSearchQuery.toLowerCase())
+  );
+
+  // Filter logic for Registered Store Locations (New)
+  const filteredCustomersList = customers.filter((c) =>
+    c.name.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase()) ||
+    c.address.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase()) ||
+    c.qr.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase())
   );
 
   const previewFirstName = agentName.trim() ? agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') : 'firstname';
@@ -471,7 +481,7 @@ const AdminDashboard = ({ currentUser }) => {
       <main className="flex-1 overflow-y-auto p-8">
         <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
-            <h2 className="text-2xl font-bold capitalize">{activeTab} Dashboard</h2>
+            <h2 className="text-2xl font-bold capitalize">{activeTab === 'customers' ? 'Customers Dashboard' : activeTab} Dashboard</h2>
             <p className="text-sm text-slate-500">Manage store locations, agents, and system activity.</p>
           </div>
           <div className="flex items-center gap-3">
@@ -497,14 +507,12 @@ const AdminDashboard = ({ currentUser }) => {
               </div>
             </div>
 
-            {/* Recent Visit Logs Table & Filters */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h3 className="font-bold text-lg flex items-center gap-2">
                   <Clock className="w-5 h-5 text-indigo-600" /> Recent Visit Logs
                 </h3>
 
-                {/* Filtering controls */}
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                   <div className="relative flex-1 md:w-56">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -681,37 +689,67 @@ const AdminDashboard = ({ currentUser }) => {
               </form>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="font-bold text-lg mb-4">Registered Store Locations ({customers.length})</h3>
-              <div className="space-y-4">
-                {customers.map((c) => (
-                  <div key={c.id} className="flex justify-between items-center p-4 border rounded-xl hover:border-blue-400 transition">
-                    <div>
-                      <h4 className="font-bold">{c.name}</h4>
-                      <p className="text-xs text-slate-500">{c.address}</p>
-                      <p className="text-xs text-slate-400 font-mono mt-1">GPS: {c.lat}, {c.lng}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded text-slate-700 font-semibold border border-slate-200">{c.qr}</span>
-                      
-                      <button 
-                        onClick={() => downloadQRPdf(c)}
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                        title="Download QR PDF"
-                      >
-                        <Download className="w-4 h-4" /> PDF
-                      </button>
+            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <h3 className="font-bold text-lg">Registered Store Locations ({filteredCustomersList.length})</h3>
+                
+                {/* Registered Store Search Bar */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input 
+                    type="text"
+                    value={registeredStoreSearchQuery}
+                    onChange={(e) => setRegisteredStoreSearchQuery(e.target.value)}
+                    placeholder="Search store name, address, or QR..."
+                    className="w-full pl-9 pr-8 py-1.5 border rounded-xl text-xs focus:outline-blue-500 bg-slate-50"
+                  />
+                  {registeredStoreSearchQuery && (
+                    <button 
+                      type="button"
+                      onClick={() => setRegisteredStoreSearchQuery('')}
+                      className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-                      <button 
-                        onClick={() => handleDeleteCustomer(c.id, c.name)}
-                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                        title="Delete Store Location"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
+                {filteredCustomersList.length > 0 ? (
+                  filteredCustomersList.map((c) => (
+                    <div key={c.id} className="flex justify-between items-center p-4 border rounded-xl hover:border-blue-400 transition bg-white">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{c.name}</h4>
+                        <p className="text-xs text-slate-500">{c.address}</p>
+                        <p className="text-xs text-slate-400 font-mono mt-1">GPS: {c.lat}, {c.lng}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded text-slate-700 font-semibold border border-slate-200">{c.qr}</span>
+                        
+                        <button 
+                          onClick={() => downloadQRPdf(c)}
+                          className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                          title="Download QR PDF"
+                        >
+                          <Download className="w-4 h-4" /> PDF
+                        </button>
+
+                        <button 
+                          onClick={() => handleDeleteCustomer(c.id, c.name)}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                          title="Delete Store Location"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-xs text-center text-slate-400 py-10">
+                    {registeredStoreSearchQuery ? `No stores match "${registeredStoreSearchQuery}"` : 'No store locations registered yet.'}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -774,7 +812,6 @@ const AdminDashboard = ({ currentUser }) => {
                   <p className="text-xs text-slate-500">Click on an agent to assign specific stores to visit.</p>
                 </div>
 
-                {/* Agent Search Bar */}
                 <div className="relative w-full sm:w-64">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input 
@@ -953,7 +990,6 @@ const AdminDashboard = ({ currentUser }) => {
                   {storeSearchQuery && (
                     <button 
                       type="button"
-                      onChange={() => setStoreSearchQuery('')}
                       onClick={() => setStoreSearchQuery('')}
                       className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
@@ -962,25 +998,25 @@ const AdminDashboard = ({ currentUser }) => {
                   )}
                 </div>
 
-                {filteredStores.length > 0 && (
+                {filteredModalStores.length > 0 && (
                   <div className="flex justify-between items-center px-1">
                     <span className="text-[11px] text-slate-400">
-                      Showing {filteredStores.length} available stores
+                      Showing {filteredModalStores.length} available stores
                     </span>
                     <button 
                       type="button"
                       onClick={handleSelectAllFiltered}
                       className="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
                     >
-                      {filteredStores.every(s => assignedStoreIds.includes(s.id)) ? 'Deselect All Shown' : 'Select All Shown'}
+                      {filteredModalStores.every(s => assignedStoreIds.includes(s.id)) ? 'Deselect All Shown' : 'Select All Shown'}
                     </button>
                   </div>
                 )}
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-2 border rounded-xl p-3 bg-slate-50">
-                {filteredStores.length > 0 ? (
-                  filteredStores.map((store) => {
+                {filteredModalStores.length > 0 ? (
+                  filteredModalStores.map((store) => {
                     const isChecked = assignedStoreIds.includes(store.id);
                     return (
                       <label 
