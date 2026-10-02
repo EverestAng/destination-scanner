@@ -46,6 +46,7 @@ const AdminDashboard = ({ currentUser }) => {
   const [agentName, setAgentName] = useState('');
   const [agentsList, setAgentsList] = useState([]);
   const [agentSuccessMsg, setAgentSuccessMsg] = useState('');
+  const [agentSearchQuery, setAgentSearchQuery] = useState(''); // New State for Agent Search
 
   // Agent Store Assignment Modal State
   const [selectedAgent, setSelectedAgent] = useState(null);
@@ -421,6 +422,12 @@ const AdminDashboard = ({ currentUser }) => {
     return matchesSearch && matchesDate;
   });
 
+  // Filter logic for Agents List
+  const filteredAgentsList = agentsList.filter((agent) => 
+    agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase()) ||
+    agent.email.toLowerCase().includes(agentSearchQuery.toLowerCase())
+  );
+
   const previewFirstName = agentName.trim() ? agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') : 'firstname';
 
   return (
@@ -760,46 +767,77 @@ const AdminDashboard = ({ currentUser }) => {
               </form>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="font-bold text-lg mb-1">Active Field Agents ({agentsList.length})</h3>
-              <p className="text-xs text-slate-500 mb-4">Click on an agent to assign specific stores to visit.</p>
+            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h3 className="font-bold text-lg mb-0.5">Active Field Agents ({filteredAgentsList.length})</h3>
+                  <p className="text-xs text-slate-500">Click on an agent to assign specific stores to visit.</p>
+                </div>
+
+                {/* Agent Search Bar */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input 
+                    type="text"
+                    value={agentSearchQuery}
+                    onChange={(e) => setAgentSearchQuery(e.target.value)}
+                    placeholder="Search agent name or email..."
+                    className="w-full pl-9 pr-8 py-1.5 border rounded-xl text-xs focus:outline-blue-500 bg-slate-50"
+                  />
+                  {agentSearchQuery && (
+                    <button 
+                      type="button"
+                      onClick={() => setAgentSearchQuery('')}
+                      className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
               
-              <div className="space-y-3">
-                {agentsList.map((agent) => (
-                  <div 
-                    key={agent.id} 
-                    onClick={() => handleOpenAssignModal(agent)}
-                    className="p-4 border rounded-xl flex justify-between items-center hover:border-blue-500 hover:shadow-md transition cursor-pointer bg-white"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
-                        {agent.name.charAt(0)}
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                {filteredAgentsList.length > 0 ? (
+                  filteredAgentsList.map((agent) => (
+                    <div 
+                      key={agent.id} 
+                      onClick={() => handleOpenAssignModal(agent)}
+                      className="p-4 border rounded-xl flex justify-between items-center hover:border-blue-500 hover:shadow-md transition cursor-pointer bg-white"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                          {agent.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-800">{agent.name}</h4>
+                          <p className="text-xs text-slate-500 font-mono">{agent.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-800">{agent.name}</h4>
-                        <p className="text-xs text-slate-500 font-mono">{agent.email}</p>
+                      
+                      <div className="flex items-center gap-2">
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(agent); }}
+                          className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-semibold border border-blue-200 flex items-center gap-1 hover:bg-blue-100 cursor-pointer"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" /> Assign Stores
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent.id, agent.name); }}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                          title="Delete Agent Account"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(agent); }}
-                        className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-semibold border border-blue-200 flex items-center gap-1 hover:bg-blue-100 cursor-pointer"
-                      >
-                        <CheckSquare className="w-3.5 h-3.5" /> Assign Stores
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent.id, agent.name); }}
-                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                        title="Delete Agent Account"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-xs text-center text-slate-400 py-10">
+                    {agentSearchQuery ? `No field agents match "${agentSearchQuery}"` : 'No field agents created yet.'}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -915,6 +953,7 @@ const AdminDashboard = ({ currentUser }) => {
                   {storeSearchQuery && (
                     <button 
                       type="button"
+                      onChange={() => setStoreSearchQuery('')}
                       onClick={() => setStoreSearchQuery('')}
                       className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
