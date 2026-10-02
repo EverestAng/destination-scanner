@@ -322,12 +322,11 @@ app.get('/api/visits', async (req, res) => {
   }
 });
 
-// 8. Record Visit Log (Updated para sa hanggang 3 beses bawat araw per agent)[cite: 6]
+// 8. Record Visit Log (Static QR Code + Max 3 scans per day)
 app.post('/api/visits', async (req, res) => {
   const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
   
   try {
-    // Bilangin kung ilang beses nang na-scan ng agent na ito ang store ngayong araw[cite: 6]
     const visitCountQuery = await pool.query(
       `SELECT COUNT(*) AS total_visits FROM visits 
        WHERE agent_id = $1 
@@ -341,7 +340,7 @@ app.post('/api/visits', async (req, res) => {
 
     if (totalVisits >= 3) {
       return res.status(400).json({ 
-        error: 'Naabot mo na ang limitasyon na 3 beses na pag-scan sa store na ito ngayong araw.' 
+        error: 'You reached the maximum of 3 scans a day!' 
       });
     }
 
@@ -350,10 +349,6 @@ app.post('/api/visits', async (req, res) => {
       [agent_id, customer_id, agent_lat, agent_lng, distance_meters, status]
     );
 
-    if (status === 'verified') {
-      const newQrToken = `QR-CUST-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
-      await pool.query('UPDATE customers SET qr_token = $1 WHERE id = $2', [newQrToken, customer_id]);
-    }
 
     res.json(newVisit.rows[0]);
   } catch (err) {
