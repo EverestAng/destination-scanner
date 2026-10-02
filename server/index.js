@@ -322,22 +322,26 @@ app.get('/api/visits', async (req, res) => {
   }
 });
 
-// 8. Record Visit Log
+// 8. Record Visit Log (Updated para sa hanggang 3 beses bawat araw per agent)[cite: 6]
 app.post('/api/visits', async (req, res) => {
   const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
   
   try {
-    const recentVisit = await pool.query(
-      `SELECT * FROM visits 
-       WHERE customer_id = $1 
+    // Bilangin kung ilang beses nang na-scan ng agent na ito ang store ngayong araw[cite: 6]
+    const visitCountQuery = await pool.query(
+      `SELECT COUNT(*) AS total_visits FROM visits 
+       WHERE agent_id = $1 
+         AND customer_id = $2 
          AND status = 'verified' 
          AND DATE(timestamp) = CURRENT_DATE`,
-      [customer_id]
+      [agent_id, customer_id]
     );
 
-    if (recentVisit.rows.length > 0) {
+    const totalVisits = parseInt(visitCountQuery.rows[0].total_visits, 10);
+
+    if (totalVisits >= 3) {
       return res.status(400).json({ 
-        error: 'This store has already been scanned today. Please try again tomorrow.' 
+        error: 'Naabot mo na ang limitasyon na 3 beses na pag-scan sa store na ito ngayong araw.' 
       });
     }
 
