@@ -306,6 +306,35 @@ app.post('/api/customers', async (req, res) => {
   }
 });
 
+// --- BAGONG IDINAGDAG: 5.5 Update / Edit Store Location ---
+app.put('/api/customers/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, address, lat, lng } = req.body;
+
+  if (!name || !name.trim() || !address || !address.trim() || lat === undefined || lng === undefined) {
+    return res.status(400).json({ error: 'Store Name, Address, Latitude, and Longitude are all required.' });
+  }
+
+  try {
+    const updatedCustomer = await pool.query(
+      'UPDATE customers SET name = $1, address = $2, latitude = $3, longitude = $4 WHERE id = $5 RETURNING *',
+      [name.trim(), address.trim(), parseFloat(lat), parseFloat(lng), id]
+    );
+
+    if (updatedCustomer.rows.length === 0) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    res.json({
+      message: 'Store location updated successfully',
+      customer: updatedCustomer.rows[0]
+    });
+  } catch (err) {
+    console.error('UPDATE STORE ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 6. Delete Store Location
 app.delete('/api/customers/:id', async (req, res) => {
   const { id } = req.params;

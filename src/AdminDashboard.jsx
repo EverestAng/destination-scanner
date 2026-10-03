@@ -327,9 +327,12 @@ const AdminDashboard = ({ currentUser }) => {
     e.preventDefault();
     if (!editingStore) return;
 
+    // Linisin at siguruhing purong ID ang gagamitin (inalis ang anumang colon sakaling mapasama)
+    const cleanStoreId = String(editingStore.id).split(':')[0];
+
     setIsSavingEditStore(true);
     try {
-      const res = await fetch(`${API_URL}/api/customers/${editingStore.id}`, {
+      const res = await fetch(`${API_URL}/api/customers/${cleanStoreId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editStoreForm),
@@ -354,8 +357,10 @@ const AdminDashboard = ({ currentUser }) => {
   const handleDeleteCustomer = async (id, name) => {
     if (!window.confirm(`Are you sure you want to delete store "${name}"?`)) return;
 
+    const cleanId = String(id).split(':')[0];
+
     try {
-      const res = await fetch(`${API_URL}/api/customers/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/customers/${cleanId}`, { method: 'DELETE' });
       if (res.ok) {
         fetchCustomers();
         fetchVisits();
@@ -565,7 +570,7 @@ const AdminDashboard = ({ currentUser }) => {
                 <p className="text-xs text-slate-500 font-semibold uppercase">Active Field Agents</p>
                 <p className="text-3xl font-extrabold mt-2">{agentsList.length}</p>
               </div>
-              {/* Verified Visits (Today) - Nagre-reset to zero pagka-kinabukasan */}
+              {/* Verified Visits (Today) */}
               {(() => {
                 const todayStr = new Date().toISOString().split('T')[0];
                 const todayVerifiedCount = visitsList.filter(v => {
