@@ -565,10 +565,22 @@ const AdminDashboard = ({ currentUser }) => {
                 <p className="text-xs text-slate-500 font-semibold uppercase">Active Field Agents</p>
                 <p className="text-3xl font-extrabold mt-2">{agentsList.length}</p>
               </div>
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-indigo-500">
-                <p className="text-xs text-slate-500 font-semibold uppercase">Verified Visits</p>
-                <p className="text-3xl font-extrabold mt-2">{visitsList.length}</p>
-              </div>
+              {/* Verified Visits (Today) - Nagre-reset to zero pagka-kinabukasan */}
+              {(() => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const todayVerifiedCount = visitsList.filter(v => {
+                  if (!v.timestamp) return false;
+                  const visitDateOnly = v.timestamp.split('T')[0];
+                  return v.status === 'verified' && visitDateOnly === todayStr;
+                }).length;
+
+                return (
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-indigo-500">
+                    <p className="text-xs text-slate-500 font-semibold uppercase">Verified Visits (Today)</p>
+                    <p className="text-3xl font-extrabold mt-2">{todayVerifiedCount}</p>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">

@@ -107,13 +107,41 @@ app.post('/api/agents', async (req, res) => {
   }
 });
 
+// Update Field Agent Name
+app.put('/api/agents/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Agent Full Name is required.' });
+  }
+
+  try {
+    const updatedAgent = await pool.query(
+      "UPDATE users SET name = $1 WHERE id = $2 AND role = 'agent' RETURNING id, name, email, role",
+      [name.trim(), id]
+    );
+
+    if (updatedAgent.rows.length === 0) {
+      return res.status(404).json({ error: 'Agent not found.' });
+    }
+
+    res.json({
+      message: 'Agent updated successfully!',
+      agent: updatedAgent.rows[0]
+    });
+  } catch (err) {
+    console.error('UPDATE AGENT ERROR:', err.message);
+    res.status(500).json({ error: 'Server error while updating agent.' });
+  }
+});
+
 // Delete Field Agent
 app.delete('/api/agents/:id', async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // I-set sa NULL ang agent_id sa mga customers na hawak niya bago idelete ang agent
     await client.query('UPDATE customers SET agent_id = NULL WHERE agent_id = $1', [id]);
     const result = await client.query("DELETE FROM users WHERE id = $1 AND role = 'agent' RETURNING *", [id]);
     if (result.rows.length === 0) {
@@ -304,7 +332,7 @@ app.delete('/api/customers/:id', async (req, res) => {
   }
 });
 
-// 7. Get All Visits Logs (Para sa Admin Overview Table at Dynamic Count)
+// 7. Get All Visits Logs
 app.get('/api/visits', async (req, res) => {
   try {
     const query = `
@@ -322,7 +350,7 @@ app.get('/api/visits', async (req, res) => {
   }
 });
 
-// 8. Record Visit Log (Static QR Code + Max 3 scans per day)
+// 8. Record Visit Log
 app.post('/api/visits', async (req, res) => {
   const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
   
@@ -348,7 +376,6 @@ app.post('/api/visits', async (req, res) => {
       'INSERT INTO visits (agent_id, customer_id, agent_lat, agent_lng, distance_meters, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
       [agent_id, customer_id, agent_lat, agent_lng, distance_meters, status]
     );
-
 
     res.json(newVisit.rows[0]);
   } catch (err) {
