@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, MapPin, CheckCircle, 
-  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock, RefreshCw
+  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock, RefreshCw, Edit3
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -67,7 +67,13 @@ const AdminDashboard = ({ currentUser }) => {
     lng: '125.6110'
   });
 
-  // Store Locations Tab Search State (New)
+  // Edit Store Modal State
+  const [isEditStoreModalOpen, setIsEditStoreModalOpen] = useState(false);
+  const [editingStore, setEditingStore] = useState(null);
+  const [editStoreForm, setEditStoreForm] = useState({ name: '', address: '', lat: '', lng: '' });
+  const [isSavingEditStore, setIsSavingEditStore] = useState(false);
+
+  // Store Locations Tab Search State
   const [registeredStoreSearchQuery, setRegisteredStoreSearchQuery] = useState('');
 
   // Visit Logs Filtering State
@@ -306,6 +312,45 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
+  const handleOpenEditStoreModal = (store) => {
+    setEditingStore(store);
+    setEditStoreForm({
+      name: store.name,
+      address: store.address,
+      lat: store.lat,
+      lng: store.lng
+    });
+    setIsEditStoreModalOpen(true);
+  };
+
+  const handleUpdateStore = async (e) => {
+    e.preventDefault();
+    if (!editingStore) return;
+
+    setIsSavingEditStore(true);
+    try {
+      const res = await fetch(`${API_URL}/api/customers/${editingStore.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editStoreForm),
+      });
+
+      if (res.ok) {
+        alert('Store location updated successfully!');
+        setIsEditStoreModalOpen(false);
+        fetchCustomers();
+      } else {
+        const errData = await res.json();
+        alert(`Failed to update store: ${errData.error || 'Server error'}`);
+      }
+    } catch (err) {
+      console.error('Update store error:', err);
+      alert('Cannot connect to Express backend server!');
+    } finally {
+      setIsSavingEditStore(false);
+    }
+  };
+
   const handleDeleteCustomer = async (id, name) => {
     if (!window.confirm(`Are you sure you want to delete store "${name}"?`)) return;
 
@@ -431,14 +476,14 @@ const AdminDashboard = ({ currentUser }) => {
     agent.email.toLowerCase().includes(agentSearchQuery.toLowerCase())
   );
 
-  // Filter logic for Registered Store Locations (New)
+  // Filter logic for Registered Store Locations
   const filteredCustomersList = customers.filter((c) =>
     c.name.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase()) ||
     c.address.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase()) ||
     c.qr.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase())
   );
 
-  // Dynamic Email Preview Generation (Para tugma sa backend logic)
+  // Dynamic Email Preview Generation
   let previewFirstName = 'firstname';
   if (agentName.trim()) {
     const firstName = agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -497,7 +542,11 @@ const AdminDashboard = ({ currentUser }) => {
         <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
             <h2 className="text-2xl font-bold capitalize">{activeTab === 'customers' ? 'Customers Dashboard' : activeTab} Dashboard</h2>
-            <p className="text-sm text-slate-500">Manage store locations, agents, and system activity.</p>
+            <p className="text-sm text-slate-500">
+              {activeTab === 'settings' 
+                ? 'Manage your administrator account credentials and security preferences.' 
+                : 'Manage store locations, agents, and system activity.'}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -708,7 +757,6 @@ const AdminDashboard = ({ currentUser }) => {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <h3 className="font-bold text-lg">Registered Store Locations ({filteredCustomersList.length})</h3>
                 
-                {/* Registered Store Search Bar */}
                 <div className="relative w-full sm:w-64">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input 
@@ -748,6 +796,14 @@ const AdminDashboard = ({ currentUser }) => {
                           title="Download QR PDF"
                         >
                           <Download className="w-4 h-4" /> PDF
+                        </button>
+
+                        <button 
+                          onClick={() => handleOpenEditStoreModal(c)}
+                          className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
+                          title="Edit Store Location"
+                        >
+                          <Edit3 className="w-4 h-4" />
                         </button>
 
                         <button 
@@ -896,8 +952,8 @@ const AdminDashboard = ({ currentUser }) => {
         )}
 
         {activeTab === 'settings' && (
-          <div className="max-w-xl mx-auto space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <div className="space-y-6">
+            <div className="max-w-xl bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                 <Settings className="w-5 h-5 text-blue-600" />
                 <h3 className="font-bold text-lg text-slate-800">Admin Account Settings</h3>
@@ -967,6 +1023,92 @@ const AdminDashboard = ({ currentUser }) => {
                 >
                   Update Admin Password
                 </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Store Modal */}
+        {isEditStoreModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200 relative">
+              <button 
+                type="button"
+                onClick={() => setIsEditStoreModalOpen(false)}
+                className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div>
+                <h3 className="font-bold text-lg text-slate-800">Edit Store Location</h3>
+                <p className="text-xs text-slate-500">Update the store details and coordinates.</p>
+              </div>
+
+              <form onSubmit={handleUpdateStore} className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-500">Business / Store Name</label>
+                  <input 
+                    type="text" 
+                    value={editStoreForm.name}
+                    onChange={(e) => setEditStoreForm({...editStoreForm, name: e.target.value})}
+                    className="w-full mt-1 p-2 border rounded-lg text-sm focus:outline-blue-500" 
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-500">Address / City</label>
+                  <input 
+                    type="text" 
+                    value={editStoreForm.address}
+                    onChange={(e) => setEditStoreForm({...editStoreForm, address: e.target.value})}
+                    className="w-full mt-1 p-2 border rounded-lg text-sm focus:outline-blue-500" 
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500">Latitude</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      value={editStoreForm.lat}
+                      onChange={(e) => setEditStoreForm({...editStoreForm, lat: e.target.value})}
+                      className="w-full mt-1 p-2 border bg-slate-50 rounded-lg text-sm font-mono focus:outline-blue-500" 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500">Longitude</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      value={editStoreForm.lng}
+                      onChange={(e) => setEditStoreForm({...editStoreForm, lng: e.target.value})}
+                      className="w-full mt-1 p-2 border bg-slate-50 rounded-lg text-sm font-mono focus:outline-blue-500" 
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    type="button"
+                    onClick={() => setIsEditStoreModalOpen(false)}
+                    className="w-1/2 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSavingEditStore}
+                    className="w-1/2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingEditStore ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
