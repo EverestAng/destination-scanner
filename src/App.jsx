@@ -15,9 +15,7 @@ function App() {
     }
   });
 
-  // State para sa active tab ('admin' o 'agent')
   const [activeTab, setActiveTab] = useState('admin');
-
   const [email, setEmail] = useState('admin@geoverify.com');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -39,7 +37,6 @@ function App() {
     }
   }, [currentUser]);
 
-  // Kapag nagpalit ng tab, i-adjust natin ang default values para madali sa kanila
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setLoginError('');
@@ -66,7 +63,6 @@ function App() {
       const data = await res.json();
 
       if (res.ok) {
-        // Optional validation para sigurohang tugma ang role
         if (activeTab === 'admin' && data.role !== 'admin') {
           setLoginError('This account is not authorized as an Administrator.');
           return;
@@ -220,11 +216,12 @@ function App() {
           </button>
         </form>
 
-        <div className="mt-6 p-3 bg-slate-950/60 rounded-lg text-[11px] text-slate-400 border border-slate-800/80 space-y-1">
-          <p className="font-bold text-slate-200">Database Accounts:</p>
-          <p>👑 <b>Admin:</b> admin@geoverify.com | pwd: <code>admin</code></p>
-          <p>📱 <b>Agent:</b> juan@agent.com | pwd: <code>123</code></p>
+        {/* COMPANY BRANDING / FOOTER */}
+        <div className="mt-6 text-center text-slate-500 text-[11px] space-y-1">
+          <p>© 2026 GeoVerify Inc. All rights reserved.</p>
+          <p>Secure Field Verification & Management System</p>
         </div>
+
       </div>
     </div>
   );
