@@ -327,7 +327,6 @@ const AdminDashboard = ({ currentUser }) => {
     e.preventDefault();
     if (!editingStore) return;
 
-    // Linisin at siguruhing purong ID ang gagamitin (inalis ang anumang colon sakaling mapasama)
     const cleanStoreId = String(editingStore.id).split(':')[0];
 
     setIsSavingEditStore(true);
