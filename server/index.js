@@ -46,8 +46,8 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/forgot-password', async (req, res) => {
   const { email, newPassword, masterKey } = req.body;
 
-  if (!email || !newPassword) {
-    return res.status(400).json({ error: 'Email and new password are required.' });
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required.' });
   }
 
   try {
@@ -59,26 +59,124 @@ app.post('/api/forgot-password', async (req, res) => {
 
     const user = userResult.rows[0];
 
+    // Kung Admin ang nag-reset, kailangan ng Master Key at newPassword
     if (user.role === 'admin') {
+      if (!newPassword) {
+        return res.status(400).json({ error: 'New password is required for admin reset.' });
+      }
       const validMasterKey = process.env.ADMIN_MASTER_KEY || 'GEO-MASTER-2026';
       if (!masterKey || masterKey !== validMasterKey) {
         return res.status(403).json({ error: 'Invalid Admin Master Recovery Key.' });
       }
+
+      if (newPassword.length < 3) {
+        return res.status(400).json({ error: 'New password must be at least 3 characters long.' });
+      }
+
+      const saltRounds = 10;
+      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+      await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedNewPassword, email]);
+
+      return res.json({ message: 'Admin password successfully reset! You can now log in.' });
     }
 
-    if (newPassword.length < 3) {
-      return res.status(400).json({ error: 'New password must be at least 3 characters long.' });
+    // Kung Agent ang nag-forgot password, gumawa ng In-App Reset Request
+    if (user.role === 'agent') {
+      // Check kung may existing pending request na para hindi ma-flood
+      const existingReq = await pool.query(
+        "SELECT * FROM password_reset_requests WHERE user_id = $1 AND status = 'pending'",
+        [user.id]
+      );
+
+      if (existingReq.rows.length > 0) {
+        return res.status(400).json({ error: 'You already have a pending password reset request sent to the Admin.' });
+      }
+
+      await pool.query(
+        "INSERT INTO password_reset_requests (user_id, status) VALUES ($1, 'pending')",
+        [user.id]
+      );
+
+      return res.json({ message: 'Password reset request sent to Admin successfully! Please wait for approval.' });
     }
 
-    const saltRounds = 10;
-    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedNewPassword, email]);
-
-    res.json({ message: 'Password successfully reset! You can now log in with your new password.' });
+    res.status(400).json({ error: 'Invalid user role.' });
   } catch (err) {
     console.error('FORGOT PASSWORD ERROR:', err.message);
-    res.status(500).json({ error: 'Server error while resetting password.' });
+    res.status(500).json({ error: 'Server error while processing password reset.' });
+  }
+});
+
+// GET Pending Reset Requests para kay Admin
+app.get('/api/admin/reset-requests', async (req, res) => {
+  try {
+    const query = `
+      SELECT r.id, r.user_id, u.name, u.email, r.status, r.created_at 
+      FROM password_reset_requests r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.status = 'pending'
+      ORDER BY r.created_at DESC
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('FETCH RESET REQUESTS ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// APPROVE Reset Request (I-reset ang password ng agent sa 123 at i-update ang status)
+app.put('/api/admin/reset-requests/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const reqResult = await client.query('SELECT * FROM password_reset_requests WHERE id = $1', [id]);
+    if (reqResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Reset request not found.' });
+    }
+
+    const resetReq = reqResult.rows[0];
+    const userId = resetReq.user_id;
+
+    const saltRounds = 10;
+    const defaultHashedPassword = await bcrypt.hash('123', saltRounds);
+
+    await client.query('UPDATE users SET password = $1 WHERE id = $2', [defaultHashedPassword, userId]);
+    await client.query("UPDATE password_reset_requests SET status = 'approved' WHERE id = $1", [id]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Reset request approved! Agent password has been reset to default (123).' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('APPROVE RESET REQUEST ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// REJECT / DISMISS Reset Request
+app.put('/api/admin/reset-requests/:id/reject', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "UPDATE password_reset_requests SET status = 'rejected' WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Reset request not found.' });
+    }
+
+    res.json({ message: 'Reset request rejected.' });
+  } catch (err) {
+    console.error('REJECT RESET REQUEST ERROR:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -388,76 +486,4 @@ app.delete('/api/customers/:id', async (req, res) => {
 
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM visits WHERE customer_id = $1', [id]);
-    const result = await client.query('DELETE FROM customers WHERE id = $1 RETURNING *', [id]);
-
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Store not found' });
-    }
-
-    await client.query('COMMIT');
-    res.json({ message: 'Store location deleted successfully' });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('DELETE STORE ERROR:', err.message);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
-});
-
-app.get('/api/visits', async (req, res) => {
-  try {
-    const query = `
-      SELECT v.*, c.name AS store_name, u.name AS agent_name 
-      FROM visits v
-      LEFT JOIN customers c ON v.customer_id = c.id
-      LEFT JOIN users u ON v.agent_id = u.id
-      ORDER BY v.timestamp DESC
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('FETCH VISITS ERROR:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/visits', async (req, res) => {
-  const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
-  
-  try {
-    const visitCountQuery = await pool.query(
-      `SELECT COUNT(*) AS total_visits FROM visits 
-       WHERE agent_id = $1 
-         AND customer_id = $2 
-         AND status = 'verified' 
-         AND DATE(timestamp) = CURRENT_DATE`,
-      [agent_id, customer_id]
-    );
-
-    const totalVisits = parseInt(visitCountQuery.rows[0].total_visits, 10);
-
-    if (totalVisits >= 3) {
-      return res.status(400).json({ 
-        error: 'You reached the maximum of 3 scans a day!' 
-      });
-    }
-
-    const newVisit = await pool.query(
-      'INSERT INTO visits (agent_id, customer_id, agent_lat, agent_lng, distance_meters, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [agent_id, customer_id, agent_lat, agent_lng, distance_meters, status]
-    );
-
-    res.json(newVisit.rows[0]);
-  } catch (err) {
-    console.error('VISIT LOG ERROR:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+    await client.query('DELETE FROM visits WHERE customer_id = $1',

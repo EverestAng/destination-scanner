@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, MapPin, CheckCircle, 
-  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock, RefreshCw, Edit3
+  Plus, ShieldCheck, UserPlus, User, Trash2, Download, KeyRound, Mail, X, CheckSquare, Search, Settings, Clock, RefreshCw, Edit3, AlertCircle
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -46,6 +46,7 @@ const AdminDashboard = ({ currentUser }) => {
   const [agentsList, setAgentsList] = useState([]);
   const [agentSuccessMsg, setAgentSuccessMsg] = useState('');
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
+  const [resetRequests, setResetRequests] = useState([]);
 
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [assignedStoreIds, setAssignedStoreIds] = useState([]);
@@ -125,10 +126,23 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
+  const fetchResetRequests = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/reset-requests`);
+      if (res.ok) {
+        const data = await res.json();
+        setResetRequests(data);
+      }
+    } catch (err) {
+      console.error('Fetch reset requests error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
     fetchAgents();
     fetchVisits();
+    fetchResetRequests();
   }, []);
 
   const handleMapClick = (lat, lng) => {
@@ -216,6 +230,37 @@ const AdminDashboard = ({ currentUser }) => {
     } catch (err) {
       console.error('Reset agent password error:', err);
       alert('Cannot connect to Express backend server!');
+    }
+  };
+
+  const handleApproveResetRequest = async (requestId, agentName) => {
+    if (!window.confirm(`Approve password reset request for "${agentName}"? Their password will be reset to default ("123").`)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/admin/reset-requests/${requestId}/approve`, { method: 'PUT' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        fetchResetRequests();
+      } else {
+        alert(`Failed to approve: ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Approve reset request error:', err);
+      alert('Cannot connect to server.');
+    }
+  };
+
+  const handleRejectResetRequest = async (requestId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/reset-requests/${requestId}/reject`, { method: 'PUT' });
+      if (res.ok) {
+        fetchResetRequests();
+      } else {
+        alert('Failed to reject request.');
+      }
+    } catch (err) {
+      console.error('Reject reset request error:', err);
     }
   };
 
@@ -521,7 +566,7 @@ const AdminDashboard = ({ currentUser }) => {
             {[
               { id: 'overview', label: 'Overview', icon: CheckCircle },
               { id: 'customers', label: 'Store Locations', icon: MapPin },
-              { id: 'agents', label: 'Field Agents', icon: Users },
+              { id: 'agents', label: 'Field Agents', icon: Users, badge: resetRequests.length },
               { id: 'settings', label: 'Settings', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -529,12 +574,19 @@ const AdminDashboard = ({ currentUser }) => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition cursor-pointer ${
                     activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  {tab.label}
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5" />
+                    {tab.label}
+                  </div>
+                  {tab.badge > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -846,133 +898,169 @@ const AdminDashboard = ({ currentUser }) => {
         )}
 
         {activeTab === 'agents' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-blue-600" /> Create Agent Account
-              </h3>
-
-              {agentSuccessMsg && (
-                <div className="p-3 bg-emerald-100 text-emerald-700 text-xs rounded-lg font-semibold">
-                  {agentSuccessMsg}
+          <div className="space-y-8">
+            {resetRequests.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl shadow-sm space-y-3">
+                <div className="flex items-center gap-2 text-amber-800 font-bold">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                  <h3>Pending Password Reset Requests ({resetRequests.length})</h3>
                 </div>
-              )}
-
-              <form onSubmit={handleCreateAgent} className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-500">Agent Full Name</label>
-                  <div className="relative mt-1">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input 
-                      type="text" 
-                      value={agentName}
-                      onChange={(e) => setAgentName(e.target.value)}
-                      placeholder="e.g. Ricardo Dalisay" 
-                      className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-blue-500" 
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1.5 border border-slate-200">
-                  <p className="text-slate-500 font-semibold flex items-center gap-1">
-                    <KeyRound className="w-3.5 h-3.5 text-blue-600" /> Auto-Generated System Credentials
-                  </p>
-                  <p className="text-slate-600 font-mono flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-slate-400" /> Email: <span className="text-blue-600 font-bold">{previewFirstName}@agent.com</span>
-                  </p>
-                  <p className="text-slate-600 font-mono">
-                    Password: <span className="text-emerald-600 font-bold">123</span>
-                  </p>
-                </div>
-
-                <button 
-                  type="submit" 
-                  className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition cursor-pointer"
-                >
-                  Create Agent Account
-                </button>
-              </form>
-            </div>
-
-            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                  <h3 className="font-bold text-lg mb-0.5">Active Field Agents ({filteredAgentsList.length})</h3>
-                  <p className="text-xs text-slate-500">Click on an agent to assign specific stores to visit.</p>
-                </div>
-
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input 
-                    type="text"
-                    value={agentSearchQuery}
-                    onChange={(e) => setAgentSearchQuery(e.target.value)}
-                    placeholder="Search agent name or email..."
-                    className="w-full pl-9 pr-8 py-1.5 border rounded-xl text-xs focus:outline-blue-500 bg-slate-50"
-                  />
-                  {agentSearchQuery && (
-                    <button 
-                      type="button"
-                      onClick={() => setAgentSearchQuery('')}
-                      className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                {filteredAgentsList.length > 0 ? (
-                  filteredAgentsList.map((agent) => (
-                    <div 
-                      key={agent.id} 
-                      onClick={() => handleOpenAssignModal(agent)}
-                      className="p-4 border rounded-xl flex justify-between items-center hover:border-blue-500 hover:shadow-md transition cursor-pointer bg-white"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
-                          {agent.name.charAt(0)}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm text-slate-800">{agent.name}</h4>
-                          <p className="text-xs text-slate-500 font-mono">{agent.email}</p>
-                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {resetRequests.map((req) => (
+                    <div key={req.id} className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm flex justify-between items-center">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-800">{req.name}</h4>
+                        <p className="text-xs text-slate-500 font-mono">{req.email}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Requested: {new Date(req.created_at).toLocaleString()}</p>
                       </div>
-                      
                       <div className="flex items-center gap-2">
                         <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(agent); }}
-                          className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-semibold border border-blue-200 flex items-center gap-1 hover:bg-blue-100 cursor-pointer"
+                          onClick={() => handleApproveResetRequest(req.id, req.name)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
                         >
-                          <CheckSquare className="w-3.5 h-3.5" /> Assign Stores
+                          Approve (Reset to 123)
                         </button>
                         <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleResetAgentPassword(agent.id, agent.name); }}
-                          className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
-                          title="Reset Password to 123"
+                          onClick={() => handleRejectResetRequest(req.id)}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
                         >
-                          <KeyRound className="w-4 h-4" />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent.id, agent.name); }}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                          title="Delete Agent Account"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          Dismiss
                         </button>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-center text-slate-400 py-10">
-                    {agentSearchQuery ? `No field agents match "${agentSearchQuery}"` : 'No field agents created yet.'}
-                  </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-blue-600" /> Create Agent Account
+                </h3>
+
+                {agentSuccessMsg && (
+                  <div className="p-3 bg-emerald-100 text-emerald-700 text-xs rounded-lg font-semibold">
+                    {agentSuccessMsg}
+                  </div>
                 )}
+
+                <form onSubmit={handleCreateAgent} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500">Agent Full Name</label>
+                    <div className="relative mt-1">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input 
+                        type="text" 
+                        value={agentName}
+                        onChange={(e) => setAgentName(e.target.value)}
+                        placeholder="e.g. Ricardo Dalisay" 
+                        className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-blue-500" 
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1.5 border border-slate-200">
+                    <p className="text-slate-500 font-semibold flex items-center gap-1">
+                      <KeyRound className="w-3.5 h-3.5 text-blue-600" /> Auto-Generated System Credentials
+                    </p>
+                    <p className="text-slate-600 font-mono flex items-center gap-1">
+                      <Mail className="w-3.5 h-3.5 text-slate-400" /> Email: <span className="text-blue-600 font-bold">{previewFirstName}@agent.com</span>
+                    </p>
+                    <p className="text-slate-600 font-mono">
+                      Password: <span className="text-emerald-600 font-bold">123</span>
+                    </p>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition cursor-pointer"
+                  >
+                    Create Agent Account
+                  </button>
+                </form>
+              </div>
+
+              <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg mb-0.5">Active Field Agents ({filteredAgentsList.length})</h3>
+                    <p className="text-xs text-slate-500">Click on an agent to assign specific stores to visit.</p>
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input 
+                      type="text"
+                      value={agentSearchQuery}
+                      onChange={(e) => setAgentSearchQuery(e.target.value)}
+                      placeholder="Search agent name or email..."
+                      className="w-full pl-9 pr-8 py-1.5 border rounded-xl text-xs focus:outline-blue-500 bg-slate-50"
+                    />
+                    {agentSearchQuery && (
+                      <button 
+                        type="button"
+                        onClick={() => setAgentSearchQuery('')}
+                        className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {filteredAgentsList.length > 0 ? (
+                    filteredAgentsList.map((agent) => (
+                      <div 
+                        key={agent.id} 
+                        onClick={() => handleOpenAssignModal(agent)}
+                        className="p-4 border rounded-xl flex justify-between items-center hover:border-blue-500 hover:shadow-md transition cursor-pointer bg-white"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                            {agent.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-800">{agent.name}</h4>
+                            <p className="text-xs text-slate-500 font-mono">{agent.email}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(agent); }}
+                            className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-semibold border border-blue-200 flex items-center gap-1 hover:bg-blue-100 cursor-pointer"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" /> Assign Stores
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleResetAgentPassword(agent.id, agent.name); }}
+                            className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
+                            title="Reset Password to 123"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent.id, agent.name); }}
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="Delete Agent Account"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-center text-slate-400 py-10">
+                      {agentSearchQuery ? `No field agents match "${agentSearchQuery}"` : 'No field agents created yet.'}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
