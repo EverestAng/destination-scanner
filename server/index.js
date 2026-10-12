@@ -7,9 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- ROUTES ---
-
-// 1. User Login Route (With bcrypt comparison)
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   console.log('--- LOGIN ATTEMPT ---');
@@ -27,7 +24,6 @@ app.post('/api/login', async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Check password (supports hashed or plain text fallback)
     let isMatch = false;
     if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
       isMatch = await bcrypt.compare(password, user.password);
@@ -47,7 +43,36 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// 2. Get All Field Agents
+app.post('/api/forgot-password', async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'Email and new password are required.' });
+  }
+
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Email address not found in the system.' });
+    }
+
+    if (newPassword.length < 3) {
+      return res.status(400).json({ error: 'New password must be at least 3 characters long.' });
+    }
+
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedNewPassword, email]);
+
+    res.json({ message: 'Password successfully reset! You can now log in with your new password.' });
+  } catch (err) {
+    console.error('FORGOT PASSWORD ERROR:', err.message);
+    res.status(500).json({ error: 'Server error while resetting password.' });
+  }
+});
+
 app.get('/api/agents', async (req, res) => {
   try {
     const agents = await pool.query("SELECT id, name, email FROM users WHERE role = 'agent' ORDER BY id DESC");
@@ -57,7 +82,6 @@ app.get('/api/agents', async (req, res) => {
   }
 });
 
-// 3. Create New Agent (Auto Email: firstname@agent.com / Default Password: 123)
 app.post('/api/agents', async (req, res) => {
   const { name } = req.body;
 
@@ -107,7 +131,6 @@ app.post('/api/agents', async (req, res) => {
   }
 });
 
-// Update Field Agent Name
 app.put('/api/agents/:id', async (req, res) => {
   const { id } = req.params;
   const { name } = req.body;
@@ -136,7 +159,6 @@ app.put('/api/agents/:id', async (req, res) => {
   }
 });
 
-// Delete Field Agent
 app.delete('/api/agents/:id', async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
@@ -159,7 +181,6 @@ app.delete('/api/agents/:id', async (req, res) => {
   }
 });
 
-// --- UNIVERSAL CHANGE PASSWORD ROUTE (Para sa Admin at Agents) ---
 app.put('/api/agents/:id/change-password', async (req, res) => {
   const { id } = req.params;
   const { currentPassword, newPassword } = req.body;
@@ -199,8 +220,6 @@ app.put('/api/agents/:id/change-password', async (req, res) => {
     res.status(500).json({ error: 'Server error while updating password.' });
   }
 });
-
-// --- AGENT STORE ASSIGNMENTS ROUTES ---
 
 app.get('/api/agents/:id/stores', async (req, res) => {
   const { id } = req.params;
@@ -257,7 +276,6 @@ app.get('/api/agents/:id/assigned-stores', async (req, res) => {
   }
 });
 
-// 4. Get All Store Locations
 app.get('/api/customers', async (req, res) => {
   try {
     const customers = await pool.query('SELECT * FROM customers ORDER BY id DESC');
@@ -267,7 +285,6 @@ app.get('/api/customers', async (req, res) => {
   }
 });
 
-// 5. Add New Store Location
 app.post('/api/customers', async (req, res) => {
   const { name, address, lat, lng } = req.body;
 
@@ -306,7 +323,6 @@ app.post('/api/customers', async (req, res) => {
   }
 });
 
-// --- BAGONG IDINAGDAG: 5.5 Update / Edit Store Location ---
 app.put('/api/customers/:id', async (req, res) => {
   const { id } = req.params;
   const { name, address, lat, lng } = req.body;
@@ -335,7 +351,6 @@ app.put('/api/customers/:id', async (req, res) => {
   }
 });
 
-// 6. Delete Store Location
 app.delete('/api/customers/:id', async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
@@ -361,7 +376,6 @@ app.delete('/api/customers/:id', async (req, res) => {
   }
 });
 
-// 7. Get All Visits Logs
 app.get('/api/visits', async (req, res) => {
   try {
     const query = `
@@ -379,7 +393,6 @@ app.get('/api/visits', async (req, res) => {
   }
 });
 
-// 8. Record Visit Log
 app.post('/api/visits', async (req, res) => {
   const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
   
