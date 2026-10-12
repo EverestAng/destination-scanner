@@ -159,6 +159,28 @@ app.put('/api/agents/:id', async (req, res) => {
   }
 });
 
+app.put('/api/agents/:id/reset-password', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const userResult = await pool.query("SELECT * FROM users WHERE id = $1 AND role = 'agent'", [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Agent not found.' });
+    }
+
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash('123', saltRounds);
+
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, id]);
+
+    res.json({ message: 'Agent password successfully reset to default (123).' });
+  } catch (err) {
+    console.error('RESET AGENT PASSWORD ERROR:', err.message);
+    res.status(500).json({ error: 'Server error while resetting agent password.' });
+  }
+});
+
 app.delete('/api/agents/:id', async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();

@@ -42,20 +42,17 @@ const LocationPickerMarker = ({ position, setPosition, onLocationSelect }) => {
 const AdminDashboard = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Agent State
   const [agentName, setAgentName] = useState('');
   const [agentsList, setAgentsList] = useState([]);
   const [agentSuccessMsg, setAgentSuccessMsg] = useState('');
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
 
-  // Agent Store Assignment Modal State
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [assignedStoreIds, setAssignedStoreIds] = useState([]);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isSavingAssignments, setIsSavingAssignments] = useState(false);
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
 
-  // Store, Map & Visits State
   const [mapCenter] = useState([7.0736, 125.6110]);
   const [selectedPin, setSelectedPin] = useState([7.0736, 125.6110]);
   const [customers, setCustomers] = useState([]);
@@ -67,21 +64,17 @@ const AdminDashboard = ({ currentUser }) => {
     lng: '125.6110'
   });
 
-  // Edit Store Modal State
   const [isEditStoreModalOpen, setIsEditStoreModalOpen] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [editStoreForm, setEditStoreForm] = useState({ name: '', address: '', lat: '', lng: '' });
   const [isSavingEditStore, setIsSavingEditStore] = useState(false);
 
-  // Store Locations Tab Search State
   const [registeredStoreSearchQuery, setRegisteredStoreSearchQuery] = useState('');
 
-  // Visit Logs Filtering State
   const [visitSearchQuery, setVisitSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Admin Password Settings State
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -209,6 +202,23 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
+  const handleResetAgentPassword = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to reset password for agent "${name}" to default ("123")?`)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/agents/${id}/reset-password`, { method: 'PUT' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || `Password for ${name} has been reset to 123.`);
+      } else {
+        alert(`Failed to reset password: ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Reset agent password error:', err);
+      alert('Cannot connect to Express backend server!');
+    }
+  };
+
   const handleOpenAssignModal = async (agent) => {
     setSelectedAgent(agent);
     setStoreSearchQuery('');
@@ -219,8 +229,6 @@ const AdminDashboard = ({ currentUser }) => {
       if (res.ok) {
         const data = await res.json();
         setAssignedStoreIds(data);
-      } else {
-        console.warn('Backend endpoint returned error status, proceeding with empty store list.');
       }
     } catch (err) {
       console.error('Error fetching assigned stores:', err);
@@ -273,7 +281,7 @@ const AdminDashboard = ({ currentUser }) => {
         setIsAssignModalOpen(false);
         fetchCustomers();
       } else {
-        alert('Failed to update store assignments. Make sure your Express endpoint is set up.');
+        alert('Failed to update store assignments.');
       }
     } catch (err) {
       console.error('Save assignment error:', err);
@@ -454,7 +462,6 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
-  // Filter logic for Visit Logs
   const filteredVisits = visitsList.filter((visit) => {
     const matchesSearch = 
       (visit.agent_name && visit.agent_name.toLowerCase().includes(visitSearchQuery.toLowerCase())) ||
@@ -474,20 +481,17 @@ const AdminDashboard = ({ currentUser }) => {
     return matchesSearch && matchesDate;
   });
 
-  // Filter logic for Agents List
   const filteredAgentsList = agentsList.filter((agent) => 
     agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase()) ||
     agent.email.toLowerCase().includes(agentSearchQuery.toLowerCase())
   );
 
-  // Filter logic for Registered Store Locations
   const filteredCustomersList = customers.filter((c) =>
     c.name.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase()) ||
     c.address.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase()) ||
     c.qr.toLowerCase().includes(registeredStoreSearchQuery.toLowerCase())
   );
 
-  // Dynamic Email Preview Generation
   let previewFirstName = 'firstname';
   if (agentName.trim()) {
     const firstName = agentName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -569,7 +573,6 @@ const AdminDashboard = ({ currentUser }) => {
                 <p className="text-xs text-slate-500 font-semibold uppercase">Active Field Agents</p>
                 <p className="text-3xl font-extrabold mt-2">{agentsList.length}</p>
               </div>
-              {/* Verified Visits (Today) */}
               {(() => {
                 const todayStr = new Date().toISOString().split('T')[0];
                 const todayVerifiedCount = visitsList.filter(v => {
@@ -948,6 +951,14 @@ const AdminDashboard = ({ currentUser }) => {
                         </button>
                         <button 
                           type="button"
+                          onClick={(e) => { e.stopPropagation(); handleResetAgentPassword(agent.id, agent.name); }}
+                          className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
+                          title="Reset Password to 123"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                        <button 
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent.id, agent.name); }}
                           className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                           title="Delete Agent Account"
@@ -1044,7 +1055,6 @@ const AdminDashboard = ({ currentUser }) => {
           </div>
         )}
 
-        {/* Edit Store Modal */}
         {isEditStoreModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200 relative">
