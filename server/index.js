@@ -59,7 +59,6 @@ app.post('/api/forgot-password', async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Kung Admin ang nag-reset, kailangan ng Master Key at newPassword
     if (user.role === 'admin') {
       if (!newPassword) {
         return res.status(400).json({ error: 'New password is required for admin reset.' });
@@ -80,9 +79,7 @@ app.post('/api/forgot-password', async (req, res) => {
       return res.json({ message: 'Admin password successfully reset! You can now log in.' });
     }
 
-    // Kung Agent ang nag-forgot password, gumawa ng In-App Reset Request
     if (user.role === 'agent') {
-      // Check kung may existing pending request na para hindi ma-flood
       const existingReq = await pool.query(
         "SELECT * FROM password_reset_requests WHERE user_id = $1 AND status = 'pending'",
         [user.id]
@@ -107,7 +104,6 @@ app.post('/api/forgot-password', async (req, res) => {
   }
 });
 
-// GET Pending Reset Requests para kay Admin
 app.get('/api/admin/reset-requests', async (req, res) => {
   try {
     const query = `
@@ -125,7 +121,6 @@ app.get('/api/admin/reset-requests', async (req, res) => {
   }
 });
 
-// APPROVE Reset Request (I-reset ang password ng agent sa 123 at i-update ang status)
 app.put('/api/admin/reset-requests/:id/approve', async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
@@ -159,7 +154,6 @@ app.put('/api/admin/reset-requests/:id/approve', async (req, res) => {
   }
 });
 
-// REJECT / DISMISS Reset Request
 app.put('/api/admin/reset-requests/:id/reject', async (req, res) => {
   const { id } = req.params;
 
@@ -486,4 +480,76 @@ app.delete('/api/customers/:id', async (req, res) => {
 
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM visits WHERE customer_id = $1',
+    await client.query('DELETE FROM visits WHERE customer_id = $1', [id]);
+    const result = await client.query('DELETE FROM customers WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Store location deleted successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('DELETE STORE ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/visits', async (req, res) => {
+  try {
+    const query = `
+      SELECT v.*, c.name AS store_name, u.name AS agent_name 
+      FROM visits v
+      LEFT JOIN customers c ON v.customer_id = c.id
+      LEFT JOIN users u ON v.agent_id = u.id
+      ORDER BY v.timestamp DESC
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('FETCH VISITS ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/visits', async (req, res) => {
+  const { agent_id, customer_id, agent_lat, agent_lng, distance_meters, status } = req.body;
+  
+  try {
+    const visitCountQuery = await pool.query(
+      `SELECT COUNT(*) AS total_visits FROM visits 
+       WHERE agent_id = $1 
+         AND customer_id = $2 
+         AND status = 'verified' 
+         AND DATE(timestamp) = CURRENT_DATE`,
+      [agent_id, customer_id]
+    );
+
+    const totalVisits = parseInt(visitCountQuery.rows[0].total_visits, 10);
+
+    if (totalVisits >= 3) {
+      return res.status(400).json({ 
+        error: 'You reached the maximum of 3 scans a day!' 
+      });
+    }
+
+    const newVisit = await pool.query(
+      'INSERT INTO visits (agent_id, customer_id, agent_lat, agent_lng, distance_meters, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [agent_id, customer_id, agent_lat, agent_lng, distance_meters, status]
+    );
+
+    res.json(newVisit.rows[0]);
+  } catch (err) {
+    console.error('VISIT LOG ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
