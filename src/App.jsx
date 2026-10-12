@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminDashboard from './AdminDashboard';
 import AgentScanner from './AgentScanner';
-import { Lock, User, ShieldCheck, Shield, Smartphone, KeyRound, X } from 'lucide-react';
+import { Lock, User, ShieldCheck, Shield, Smartphone, KeyRound, X, Send } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -97,10 +97,14 @@ function App() {
     setIsResetting(true);
 
     try {
+      const payload = activeTab === 'admin' 
+        ? { email: forgotEmail, newPassword, masterKey }
+        : { email: forgotEmail };
+
       const res = await fetch(`${API_URL}/api/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail, newPassword, masterKey }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -118,7 +122,7 @@ function App() {
         }, 3000);
       } else {
         setForgotStatus('error');
-        setForgotMessage(data.error || 'Failed to reset password.');
+        setForgotMessage(data.error || 'Failed to process request.');
       }
     } catch (err) {
       setForgotStatus('error');
@@ -240,7 +244,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setForgotEmail(email || 'admin@geoverify.com');
+                  setForgotEmail(email || (activeTab === 'admin' ? 'admin@geoverify.com' : ''));
                   setNewPassword('');
                   setMasterKey('');
                   setForgotMessage('');
@@ -294,51 +298,67 @@ function App() {
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
-                <KeyRound className="w-5 h-5" />
+              <div className={`p-2.5 rounded-xl border ${
+                activeTab === 'admin' 
+                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
+                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              }`}>
+                {activeTab === 'admin' ? <KeyRound className="w-5 h-5" /> : <Send className="w-5 h-5" />}
               </div>
               <div>
-                <h3 className="font-bold text-base text-white">Admin Password Recovery</h3>
-                <p className="text-xs text-slate-400">Enter your email, new password, and Master Recovery Key.</p>
+                <h3 className="font-bold text-base text-white">
+                  {activeTab === 'admin' ? 'Admin Password Recovery' : 'Agent Password Reset Request'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {activeTab === 'admin' 
+                    ? 'Enter your email, Master Recovery Key, and new password.' 
+                    : 'Submit your registered email to request a password reset from Admin.'}
+                </p>
               </div>
             </div>
 
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-3 pt-2">
               <div>
-                <label className="text-xs font-semibold text-slate-300">Admin Email Address</label>
+                <label className="text-xs font-semibold text-slate-300">
+                  {activeTab === 'admin' ? 'Admin Email Address' : 'Registered Agent Email'}
+                </label>
                 <input 
                   type="email" 
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="admin@geoverify.com"
+                  placeholder={activeTab === 'admin' ? 'admin@geoverify.com' : 'juan@agent.com'}
                   className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
                   required
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-300">Master Recovery Key</label>
-                <input 
-                  type="password" 
-                  value={masterKey}
-                  onChange={(e) => setMasterKey(e.target.value)}
-                  placeholder="Enter admin master key"
-                  className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
-                  required
-                />
-              </div>
+              {activeTab === 'admin' && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Master Recovery Key</label>
+                    <input 
+                      type="password" 
+                      value={masterKey}
+                      onChange={(e) => setMasterKey(e.target.value)}
+                      placeholder="Enter admin master key"
+                      className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-300">New Password</label>
-                <input 
-                  type="password" 
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password (min. 3 chars)"
-                  className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
-                  required
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">New Password</label>
+                    <input 
+                      type="password" 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (min. 3 chars)"
+                      className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
               {forgotMessage && (
                 <div className={`p-3 rounded-lg text-xs font-semibold border ${
@@ -361,9 +381,15 @@ function App() {
                 <button 
                   type="submit"
                   disabled={isResetting}
-                  className="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-lg shadow-blue-600/20"
+                  className={`w-1/2 py-2.5 rounded-xl text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-lg text-white ${
+                    activeTab === 'admin' 
+                      ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20' 
+                      : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+                  }`}
                 >
-                  {isResetting ? 'Resetting...' : 'Reset Password'}
+                  {isResetting 
+                    ? (activeTab === 'admin' ? 'Resetting...' : 'Sending Request...') 
+                    : (activeTab === 'admin' ? 'Reset Password' : 'Send Request')}
                 </button>
               </div>
             </form>
