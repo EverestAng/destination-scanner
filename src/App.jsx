@@ -24,6 +24,7 @@ function App() {
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [masterKey, setMasterKey] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
   const [forgotStatus, setForgotStatus] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -99,7 +100,7 @@ function App() {
       const res = await fetch(`${API_URL}/api/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail, newPassword }),
+        body: JSON.stringify({ email: forgotEmail, newPassword, masterKey }),
       });
 
       const data = await res.json();
@@ -111,6 +112,7 @@ function App() {
           setIsForgotModalOpen(false);
           setForgotEmail('');
           setNewPassword('');
+          setMasterKey('');
           setForgotMessage('');
           setForgotStatus(null);
         }, 3000);
@@ -238,8 +240,9 @@ function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setForgotEmail(email || '');
+                  setForgotEmail(email || 'admin@geoverify.com');
                   setNewPassword('');
+                  setMasterKey('');
                   setForgotMessage('');
                   setForgotStatus(null);
                   setIsForgotModalOpen(true);
@@ -295,19 +298,31 @@ function App() {
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-white">Reset Account Password</h3>
-                <p className="text-xs text-slate-400">Enter your email and set a new password.</p>
+                <h3 className="font-bold text-base text-white">Admin Password Recovery</h3>
+                <p className="text-xs text-slate-400">Enter your email, new password, and Master Recovery Key.</p>
               </div>
             </div>
 
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-3 pt-2">
               <div>
-                <label className="text-xs font-semibold text-slate-300">Registered Email Address</label>
+                <label className="text-xs font-semibold text-slate-300">Admin Email Address</label>
                 <input 
                   type="email" 
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="e.g. admin@geoverify.com or agent email"
+                  placeholder="admin@geoverify.com"
+                  className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300">Master Recovery Key</label>
+                <input 
+                  type="password" 
+                  value={masterKey}
+                  onChange={(e) => setMasterKey(e.target.value)}
+                  placeholder="Enter admin master key"
                   className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
                   required
                 />

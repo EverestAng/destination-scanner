@@ -44,7 +44,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/forgot-password', async (req, res) => {
-  const { email, newPassword } = req.body;
+  const { email, newPassword, masterKey } = req.body;
 
   if (!email || !newPassword) {
     return res.status(400).json({ error: 'Email and new password are required.' });
@@ -55,6 +55,15 @@ app.post('/api/forgot-password', async (req, res) => {
 
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'Email address not found in the system.' });
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.role === 'admin') {
+      const validMasterKey = process.env.ADMIN_MASTER_KEY || 'GEO-MASTER-2026';
+      if (!masterKey || masterKey !== validMasterKey) {
+        return res.status(403).json({ error: 'Invalid Admin Master Recovery Key.' });
+      }
     }
 
     if (newPassword.length < 3) {
