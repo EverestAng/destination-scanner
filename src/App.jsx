@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminDashboard from './AdminDashboard';
 import AgentScanner from './AgentScanner';
-import { Lock, User, ShieldCheck, Shield, Smartphone } from 'lucide-react';
+import { Lock, User, ShieldCheck, Shield, Smartphone, KeyRound, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -20,6 +20,13 @@ function App() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [agents, setAgents] = useState([]);
+
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotStatus, setForgotStatus] = useState(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const fetchAgents = async () => {
     try {
@@ -82,6 +89,43 @@ function App() {
     }
   };
 
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setForgotMessage('');
+    setForgotStatus(null);
+    setIsResetting(true);
+
+    try {
+      const res = await fetch(`${API_URL}/api/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, newPassword }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setForgotStatus('success');
+        setForgotMessage(data.message);
+        setTimeout(() => {
+          setIsForgotModalOpen(false);
+          setForgotEmail('');
+          setNewPassword('');
+          setForgotMessage('');
+          setForgotStatus(null);
+        }, 3000);
+      } else {
+        setForgotStatus('error');
+        setForgotMessage(data.error || 'Failed to reset password.');
+      }
+    } catch (err) {
+      setForgotStatus('error');
+      setForgotMessage('Cannot connect to server.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const handleAddAgent = async (newAgentData) => {
     try {
       const res = await fetch(`${API_URL}/api/agents`, {
@@ -132,7 +176,6 @@ function App() {
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-sans relative">
       <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
         
-        {/* HEADER & LOGO */}
         <div className="text-center mb-6">
           <div className="inline-flex p-3 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 mb-2">
             <ShieldCheck className="w-8 h-8" />
@@ -141,7 +184,6 @@ function App() {
           <p className="text-xs text-slate-400 mt-1">Employee Login System</p>
         </div>
 
-        {/* TAB SWITCHER */}
         <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 mb-6">
           <button
             type="button"
@@ -174,7 +216,6 @@ function App() {
           </div>
         )}
 
-        {/* LOGIN FORM */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="text-xs font-semibold text-slate-300">Email Address</label>
@@ -192,7 +233,22 @@ function App() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300">Password</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-slate-300">Password</label>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email || '');
+                  setNewPassword('');
+                  setForgotMessage('');
+                  setForgotStatus(null);
+                  setIsForgotModalOpen(true);
+                }}
+                className="text-[11px] text-blue-400 hover:underline cursor-pointer"
+              >
+                Forgot Password?
+              </button>
+            </div>
             <div className="relative mt-1">
               <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
               <input 
@@ -216,13 +272,89 @@ function App() {
           </button>
         </form>
 
-        {/* COMPANY BRANDING / FOOTER */}
         <div className="mt-6 text-center text-slate-500 text-[11px] space-y-1">
           <p>© 2026 GeoVerify Inc. All rights reserved.</p>
           <p>Secure Field Verification & Management System</p>
         </div>
 
       </div>
+
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative text-slate-200">
+            <button 
+              type="button"
+              onClick={() => setIsForgotModalOpen(false)}
+              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">Reset Account Password</h3>
+                <p className="text-xs text-slate-400">Enter your email and set a new password.</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-300">Registered Email Address</label>
+                <input 
+                  type="email" 
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="e.g. admin@geoverify.com or agent email"
+                  className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300">New Password</label>
+                <input 
+                  type="password" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (min. 3 chars)"
+                  className="w-full mt-1 px-3 py-2 bg-slate-950 border border-slate-800 text-white rounded-lg text-sm focus:outline-blue-500"
+                  required
+                />
+              </div>
+
+              {forgotMessage && (
+                <div className={`p-3 rounded-lg text-xs font-semibold border ${
+                  forgotStatus === 'success' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                }`}>
+                  {forgotMessage}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(false)}
+                  className="w-1/2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isResetting}
+                  className="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-lg shadow-blue-600/20"
+                >
+                  {isResetting ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
